@@ -29,51 +29,64 @@ def calculate_moving_average(data, period):
 
 def place_order(symbol, action, lot, sl_pips, tp_pips):
     """Place a market order."""
-    price = mt5.symbol_info_tick(symbol).ask if action == "buy" else mt5.symbol_info_tick(symbol).bid
     deviation = 20
-    sl = price - sl_pips * mt5.symbol_info(symbol).point if action == "buy" else price + sl_pips * mt5.symbol_info(symbol).point
-    tp = price + tp_pips * mt5.symbol_info(symbol).point if action == "buy" else price - tp_pips * mt5.symbol_info(symbol).point
-
+    magic = 4289
+    sl = mt5.symbol_info_tick(symbol).ask + sl_pips
+    tp = mt5.symbol_info_tick(symbol).bid- tp_pips
+    order_type_dict = {
+        'buy': mt5.ORDER_TYPE_BUY,
+        'sell': mt5.ORDER_TYPE_SELL
+    }
+    price_dict = {
+        'buy': mt5.symbol_info_tick(symbol).ask,
+        'sell': mt5.symbol_info_tick(symbol).bid
+    }
     request = {
         "action": mt5.TRADE_ACTION_DEAL,
         "symbol": symbol,
         "volume": lot,
-        "type": mt5.ORDER_TYPE_BUY if action == "buy" else mt5.ORDER_TYPE_SELL,
-        "price": price,
+        "type": order_type_dict[action],
+        "price": price_dict[action],
         "sl": sl,
         "tp": tp,
         "deviation": deviation,
-        "magic": 30,
-        "comment": "Scalping trade",
+        "magic": magic,
+        "comment": "Scalping",
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,  # mt.ORDER_FILLING_FOK if IOC does not work
     }
+    order_result = mt5.order_send(request)
+    print(f"Order failed: {order_result}")
+    return (order_result)
 
-    result = mt5.order_send(request)
-    if result.retcode != mt5.TRADE_RETCODE_DONE:
-        print(f"Order failed: {result.comment}")
-    else:
-        print(f"Order placed: {action} {lot} lots of {symbol}")
+    # result = mt5.order_send(request)
+    # if result.retcode != mt5.TRADE_RETCODE_DONE:
+    #     print(f"Order failed: {result.comment} {result.retcode}")
+    # else:
+    #     print(f"Order placed: {action} {lot} lots of {symbol}")
 
 # Main trading loop
 try:
     while True:
-        data = get_data(SYMBOL, TIMEFRAME, MA_PERIOD + 1)
-        if data is None or len(data) < MA_PERIOD + 1:
-            time.sleep(1)
-            continue
+        place_order(SYMBOL, 'buy', LOT_SIZE, SL_PIPS, TP_PIPS)
 
-        data['ma'] = calculate_moving_average(data, MA_PERIOD)
-        last_close = data['close'].iloc[-1]
-        last_ma = data['ma'].iloc[-1]
 
-        # Simple strategy: Buy if price > MA, Sell if price < MA
-        if last_close > last_ma:
-            place_order(SYMBOL, "buy", LOT_SIZE, SL_PIPS, TP_PIPS)
-        elif last_close < last_ma:
-            place_order(SYMBOL, "sell", LOT_SIZE, SL_PIPS, TP_PIPS)
+        # data = get_data(SYMBOL, TIMEFRAME, MA_PERIOD + 1)
+        # if data is None or len(data) < MA_PERIOD + 1:
+        #     time.sleep(1)
+        #     continue
 
-        time.sleep(60)  # Wait for the next minute
+        # data['ma'] = calculate_moving_average(data, MA_PERIOD)
+        # last_close = data['close'].iloc[-1]
+        # last_ma = data['ma'].iloc[-1]
+
+        # # Simple strategy: Buy if price > MA, Sell if price < MA
+        # if last_close > last_ma:
+        #     place_order(SYMBOL, "buy", LOT_SIZE, SL_PIPS, TP_PIPS)
+        # elif last_close < last_ma:
+        #     place_order(SYMBOL, "sell", LOT_SIZE, SL_PIPS, TP_PIPS)
+
+        # time.sleep(60)  # Wait for the next minute
 except KeyboardInterrupt:
     print("Trading stopped by user.")
 finally:
